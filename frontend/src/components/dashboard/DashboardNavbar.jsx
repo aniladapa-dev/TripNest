@@ -71,20 +71,27 @@ export default function DashboardNavbar({ isCollapsed, setIsCollapsed, setIsMobi
           <div className="h-8 w-px bg-border mx-1"></div>
 
           {/* Profile Dropdown (UI Only) */}
-          <button className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer" aria-label="User Profile Menu">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary p-0.5">
-              <img 
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" 
-                alt="User Avatar" 
-                className="w-full h-full rounded-full object-cover border-2 border-white"
-              />
-            </div>
-            <div className="hidden sm:block text-left">
-              <p className="text-sm font-semibold text-text leading-tight">Sarah Jenkins</p>
-              <p className="text-xs text-text-secondary">Pro Member</p>
-            </div>
-            <ChevronDown size={16} className="text-text-muted hidden sm:block" />
-          </button>
+          {(() => {
+            const userStr = localStorage.getItem('tripnest_user');
+            const user = userStr ? JSON.parse(userStr) : null;
+            const username = user ? (user.username || user.email) : 'Sarah Jenkins';
+            return (
+              <button className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer" aria-label="User Profile Menu">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary p-0.5">
+                  <img 
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" 
+                    alt="User Avatar" 
+                    className="w-full h-full rounded-full object-cover border-2 border-white"
+                  />
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-semibold text-text leading-tight">{username}</p>
+                  <p className="text-xs text-text-secondary">{user ? 'Traveler' : 'Pro Member'}</p>
+                </div>
+                <ChevronDown size={16} className="text-text-muted hidden sm:block" />
+              </button>
+            );
+          })()}
 
         </div>
       </div>

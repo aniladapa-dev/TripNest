@@ -21,8 +21,23 @@ const getColorForType = (type) => {
   }
 };
 
-const UpcomingItinerary = memo(({ itinerary }) => {
+const UpcomingItinerary = memo(({ itinerary, trip }) => {
   const [expanded, setExpanded] = useState(null);
+
+  const getTripDayText = () => {
+    if (!trip) return '';
+    const start = new Date(trip.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    const diffTime = today - start;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const destName = trip.destination ? trip.destination.split(',')[0] : 'Trip';
+    if (diffDays > 0 && diffDays <= (trip.duration || 1)) {
+      return `${destName}, Day ${diffDays}`;
+    }
+    return destName;
+  };
 
   if (!itinerary || itinerary.length === 0) {
     return (
@@ -37,7 +52,11 @@ const UpcomingItinerary = memo(({ itinerary }) => {
     <div className="bg-white rounded-[20px] border border-border/50 p-6 shadow-sm">
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-heading font-bold text-lg text-text">Today's Itinerary</h3>
-        <span className="text-sm font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">Kyoto, Day 3</span>
+        {trip && (
+          <span className="text-sm font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
+            {getTripDayText()}
+          </span>
+        )}
       </div>
 
       <div className="relative border-l-2 border-border ml-3 space-y-6">

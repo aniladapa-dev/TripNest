@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plane, Globe, Wallet, CheckCircle, Plus } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { dashboardService } from '../../services/dashboardService';
 
 import StatCard from '../../components/dashboard/StatCard';
@@ -20,6 +21,7 @@ export default function DashboardHome() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,6 +44,28 @@ export default function DashboardHome() {
     };
     fetchData();
   }, []);
+
+  const getUpcomingTrip = () => {
+    if (!data || !data.trips) return null;
+    return data.trips.find(t => 
+      t.status?.toLowerCase() === 'upcoming' || 
+      t.status?.toLowerCase() === 'planning' || 
+      t.status?.toLowerCase() === 'booked'
+    );
+  };
+
+  const upcomingTrip = getUpcomingTrip();
+  let daysAway = null;
+  if (upcomingTrip) {
+    const dateStr = upcomingTrip.dates ? upcomingTrip.dates.split(' - ')[0] : null;
+    if (dateStr) {
+      const startDate = new Date(dateStr);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const diffTime = startDate - today;
+      daysAway = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+  }
 
   return (
     <AnimatePresence mode="wait">
@@ -89,20 +113,50 @@ export default function DashboardHome() {
           >
             <div className="absolute right-0 top-0 w-1/2 h-full bg-[url('https://images.unsplash.com/photo-1503220317375-aaad61436b1b?q=80&w=800&auto=format&fit=crop')] opacity-20 mix-blend-overlay object-cover mask-image-gradient-l"></div>
             <div className="relative z-10 max-w-2xl">
-              <h1 className="text-3xl sm:text-4xl font-heading font-bold mb-4">
-                Your Kyoto adventure is <span className="text-accent-light">14 days</span> away!
-              </h1>
-              <p className="text-white/80 text-lg mb-8">
-                "The journey of a thousand miles begins with a single step." — Lao Tzu
-              </p>
-              <div className="flex gap-4">
-                <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-primary backdrop-blur-md font-semibold">
-                  View Itinerary
-                </Button>
-                <Button variant="primary" className="bg-accent hover:bg-accent-light text-white border-none font-semibold flex items-center gap-2">
-                  <Plus size={18} /> New Trip
-                </Button>
-              </div>
+              {upcomingTrip ? (
+                <>
+                  <h1 className="text-3xl sm:text-4xl font-heading font-bold mb-4">
+                    Your {upcomingTrip.destination.split(',')[0]} adventure is <span className="text-accent-light">{daysAway !== null && daysAway >= 0 ? `${daysAway} days` : 'soon'}</span> away!
+                  </h1>
+                  <p className="text-white/80 text-lg mb-8">
+                    "The journey of a thousand miles begins with a single step." — Lao Tzu
+                  </p>
+                  <div className="flex gap-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => navigate(`/dashboard/itinerary?tripId=${upcomingTrip.id}`)}
+                      className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-primary backdrop-blur-md font-semibold"
+                    >
+                      View Itinerary
+                    </Button>
+                    <Button 
+                      variant="primary" 
+                      onClick={() => navigate('/dashboard/trips/create')}
+                      className="bg-accent hover:bg-accent-light text-white border-none font-semibold flex items-center gap-2"
+                    >
+                      <Plus size={18} /> New Trip
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-3xl sm:text-4xl font-heading font-bold mb-4">
+                    Welcome to TripNest! Ready to plan your next adventure?
+                  </h1>
+                  <p className="text-white/80 text-lg mb-8">
+                    Create day-wise travel itineraries, track your budgets, and keep your documents organized.
+                  </p>
+                  <div className="flex gap-4">
+                    <Button 
+                      variant="primary" 
+                      onClick={() => navigate('/dashboard/trips/create')}
+                      className="bg-accent hover:bg-accent-light text-white border-none font-semibold flex items-center gap-2"
+                    >
+                      <Plus size={18} /> Plan Your First Trip
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
 
@@ -144,8 +198,8 @@ export default function DashboardHome() {
             {/* Right Column (Span 1) */}
             <div className="space-y-8">
               <WeatherWidget weather={data.weather} />
-              <UpcomingItinerary itinerary={data.itinerary} />
-              <TravelCalendar />
+              <UpcomingItinerary itinerary={data.itinerary} trip={upcomingTrip} />
+              <TravelCalendar trips={data.trips} />
               <DestinationRecommendations />
             </div>
           </div>

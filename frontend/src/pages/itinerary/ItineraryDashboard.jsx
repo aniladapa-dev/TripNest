@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ListTodo } from 'lucide-react';
 
 import { itineraryService } from '../../services/itineraryService';
-import { tripService } from '../../services/tripService'; // to get trip details
+import { tripService } from '../../services/tripService';
 import ItineraryHeader from '../../components/itinerary/ItineraryHeader';
 import DaySelector from '../../components/itinerary/DaySelector';
 import { ItinerarySkeletons } from '../../components/itinerary/ItinerarySkeletons';
+import EmptyState from '../../components/ui/EmptyState';
 
 // Views
 import TimelineView from '../../components/itinerary/TimelineView';
@@ -19,14 +21,15 @@ import ReminderCenter from '../../components/itinerary/ReminderCenter';
 
 export default function ItineraryDashboard() {
   const location = useLocation();
-  // Attempt to grab tripId from URL query params (e.g. ?tripId=t123)
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
-  const tripId = searchParams.get('tripId') || 't1'; // fallback mock tripId
+  const tripId = searchParams.get('tripId');
   
   const [loading, setLoading] = useState(true);
   const [trip, setTrip] = useState(null);
   const [activities, setActivities] = useState([]);
   const [reminders, setReminders] = useState([]);
+  const [allTrips, setAllTrips] = useState([]);
   
   // State
   const [viewMode, setViewMode] = useState('timeline'); // timeline, calendar, kanban
@@ -34,27 +37,41 @@ export default function ItineraryDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
 
-  // Mock Days
-  const mockDays = [
-    { id: 'd1', dateFormatted: 'Sep 1, 2024 (Sun)' },
-    { id: 'd2', dateFormatted: 'Sep 2, 2024 (Mon)' },
-    { id: 'd3', dateFormatted: 'Sep 3, 2024 (Tue)' }
-  ];
-
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // In a real app we'd fetch based on tripId
-        const [tripData, acts, rems] = await Promise.all([
-          tripService.getTripById(tripId).catch(() => ({ name: 'Kyoto Adventure', destination: 'Kyoto, Japan', status: 'Upcoming', duration: 14 })),
-          itineraryService.getActivitiesByTrip(tripId),
-          itineraryService.getReminders(tripId)
-        ]);
         
-        setTrip(tripData);
-        setActivities(acts);
-        setReminders(rems);
+        let activeTripId = tripId;
+        const trips = await tripService.getTrips();
+        setAllTrips(trips);
+        
+        // If tripId is not specified or is not found in the user's active trips
+        if (!activeTripId || trips.every(t => String(t.id) !== String(activeTripId))) {
+          if (trips && trips.length > 0) {
+            activeTripId = trips[0].id;
+            // Update URL query string to match the selected active trip
+            navigate(`/dashboard/itinerary?tripId=${activeTripId}`, { replace: true });
+          } else {
+            activeTripId = null;
+          }
+        }
+        
+        if (activeTripId) {
+          const [tripData, acts, rems] = await Promise.all([
+            tripService.getTripById(activeTripId),
+            itineraryService.getActivitiesByTrip(activeTripId),
+            itineraryService.getReminders(activeTripId)
+          ]);
+          
+          setTrip(tripData);
+          setActivities(acts);
+          setReminders(rems);
+        } else {
+          setTrip(null);
+          setActivities([]);
+          setReminders([]);
+        }
       } catch (error) {
         console.error("Failed to load itinerary", error);
       } finally {
@@ -63,7 +80,7 @@ export default function ItineraryDashboard() {
     };
     
     fetchData();
-  }, [tripId]);
+  }, [tripId, navigate]);
 
   const handleAddActivity = () => {
     setEditingActivity(null);
@@ -91,14 +108,48 @@ export default function ItineraryDashboard() {
     setIsModalOpen(false);
   };
 
+  // Generate dynamic days array from trip startDate and endDate
+  const getTripDays = () => {
+    if (!trip || !trip.startDate || !trip.endDate) return [];
+    const start = new Date(trip.startDate);
+    const end = new Date(trip.endDate);
+    const days = [];
+    let dayNum = 1;
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateFormatted = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        weekday: 'short'
+      });
+      const dateStr = d.toISOString().split('T')[0];
+      days.push({
+        id: dateStr,
+        dayNumber: dayNum++,
+        dateFormatted: dateFormatted
+      });
+    }
+    return days;
+  };
+
+  const sortedActivities = [...activities].sort((a, b) => {
+    if (a.date !== b.date) {
+      return a.date.localeCompare(b.date);
+    }
+    const timeA = a.startTime || '';
+    const timeB = b.startTime || '';
+    return timeA.localeCompare(timeB);
+  });
+
   const filteredActivities = selectedDay === 'all' 
-    ? activities 
-    : activities.filter(a => a.date === '2024-09-02'); // Mock filter for day 2
+    ? sortedActivities 
+    : sortedActivities.filter(a => a.date === selectedDay);
 
   const renderView = () => {
     switch (viewMode) {
       case 'calendar':
-        return <CalendarView activities={filteredActivities} />;
+        return <CalendarView activities={filteredActivities} trip={trip} />;
       case 'kanban':
         return <KanbanView activities={filteredActivities} />;
       case 'timeline':
@@ -125,6 +176,22 @@ export default function ItineraryDashboard() {
         >
           <ItinerarySkeletons />
         </motion.div>
+      ) : !trip ? (
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="min-h-[60vh] flex items-center justify-center bg-white rounded-[24px] border border-border/50 p-6"
+        >
+          <EmptyState 
+            icon={ListTodo}
+            title="No Active Trip Found"
+            message="You need to create a trip first before you can plan its day-wise itinerary."
+            actionLabel="Create a Trip"
+            onAction={() => navigate('/dashboard/trips/create')}
+          />
+        </motion.div>
       ) : (
         <motion.div
           key="content"
@@ -137,6 +204,8 @@ export default function ItineraryDashboard() {
           {/* Header */}
           <ItineraryHeader 
             trip={trip} 
+            trips={allTrips}
+            activities={activities}
             viewMode={viewMode} 
             setViewMode={setViewMode} 
             onAddActivity={handleAddActivity} 
@@ -147,9 +216,8 @@ export default function ItineraryDashboard() {
             <div className="w-full lg:w-72 space-y-6 shrink-0 lg:sticky lg:top-24 h-max">
               <ReminderCenter reminders={reminders} />
               
-              {/* Day Selector only relevant for timeline, but can stay globally */}
               <DaySelector 
-                days={mockDays} 
+                days={getTripDays()} 
                 selectedDay={selectedDay} 
                 onSelectDay={setSelectedDay} 
               />
@@ -177,6 +245,7 @@ export default function ItineraryDashboard() {
             onClose={() => setIsModalOpen(false)}
             onSave={handleSaveActivity}
             activity={editingActivity}
+            trip={trip}
           />
         </motion.div>
       )}

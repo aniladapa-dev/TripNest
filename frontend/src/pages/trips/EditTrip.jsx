@@ -16,7 +16,9 @@ export default function EditTrip() {
   const [isSaving, setIsSaving] = useState(false);
   const [trip, setTrip] = useState(null);
 
-  const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { errors, isDirty } } = useForm();
+
+  const startDateValue = watch('startDate');
 
   useEffect(() => {
     const fetchTrip = async () => {
@@ -39,6 +41,7 @@ export default function EditTrip() {
     setIsSaving(true);
     try {
       await tripService.updateTrip(id, data);
+      window.dispatchEvent(new Event('tripUpdated'));
       navigate(`/dashboard/trips/${id}`);
     } catch (error) {
       console.error(error);
@@ -127,8 +130,18 @@ export default function EditTrip() {
               <Input
                 label="End Date"
                 type="date"
+                min={startDateValue}
                 error={errors.endDate?.message}
-                {...register('endDate', { required: 'Required' })}
+                {...register('endDate', { 
+                  required: 'Required',
+                  validate: value => {
+                    if (!startDateValue) return true;
+                    if (new Date(value) < new Date(startDateValue)) {
+                      return 'End date cannot be before start date';
+                    }
+                    return true;
+                  }
+                })}
               />
               <Input
                 label="Travelers"

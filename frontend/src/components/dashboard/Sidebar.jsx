@@ -134,6 +134,10 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
       <div className="p-4 border-t border-border/50">
         <NavLink
           to="/login"
+          onClick={() => {
+            localStorage.removeItem('tripnest_token');
+            localStorage.removeItem('tripnest_user');
+          }}
           className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors group cursor-pointer"
           title={isCollapsed ? 'Log out' : undefined}
         >

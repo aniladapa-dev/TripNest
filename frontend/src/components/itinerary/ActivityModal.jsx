@@ -8,7 +8,7 @@ import Button from "../ui/Button";
 const CATEGORIES = ['Flight', 'Hotel', 'Dining', 'Sightseeing', 'Transport', 'Custom'];
 const PRIORITIES = ['Low', 'Medium', 'High'];
 
-const ActivityModal = ({ isOpen, onClose, onSave, activity }) => {
+const ActivityModal = ({ isOpen, onClose, onSave, activity, trip }) => {
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
       title: '',
@@ -117,7 +117,22 @@ const ActivityModal = ({ isOpen, onClose, onSave, activity }) => {
                       </label>
                       <Input 
                         type="date" 
-                        {...register('date')} 
+                        min={trip?.startDate}
+                        max={trip?.endDate}
+                        error={errors.date?.message}
+                        {...register('date', { 
+                          required: 'Date is required',
+                          validate: value => {
+                            if (!trip) return true;
+                            const d = new Date(value);
+                            const start = new Date(trip.startDate);
+                            const end = new Date(trip.endDate);
+                            if (d < start || d > end) {
+                              return `Date must be between ${trip.startDate} and ${trip.endDate}`;
+                            }
+                            return true;
+                          }
+                        })} 
                         className="w-full bg-white/5 border-white/10 focus:border-indigo-500 text-white" 
                       />
                     </div>

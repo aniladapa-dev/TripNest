@@ -1,9 +1,42 @@
 import { motion } from 'framer-motion';
 import { Calendar, LayoutList, Columns, Clock } from 'lucide-react';
 import Button from '../ui/Button';
+import { formatINR } from '../../utils/currency';
 
-export default function ItineraryHeader({ trip, viewMode, setViewMode, onAddActivity }) {
+export default function ItineraryHeader({ trip, trips = [], activities = [], viewMode, setViewMode, onAddActivity }) {
   if (!trip) return null;
+
+  // Calculate dynamic stats
+  const totalActivities = activities.length;
+  
+  const todayStr = new Date().toISOString().split('T')[0];
+  const completed = activities.filter(a => {
+    if (!a.date) return false;
+    return a.date < todayStr || a.status === 'Completed';
+  }).length;
+
+  const estCost = activities.reduce((sum, a) => {
+    const val = parseFloat(String(a.cost || '0').replace(/[^\d.]/g, ''));
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
+  const calculateTotalHours = (acts) => {
+    let totalMin = 0;
+    acts.forEach(a => {
+      const dur = String(a.duration || '').toLowerCase();
+      const hMatch = dur.match(/(\d+)\s*h/);
+      const mMatch = dur.match(/(\d+)\s*m/);
+      if (hMatch) totalMin += parseInt(hMatch[1], 10) * 60;
+      if (mMatch) totalMin += parseInt(mMatch[1], 10);
+      if (!hMatch && !mMatch) {
+        const num = parseInt(dur, 10);
+        if (!isNaN(num)) totalMin += num * 60;
+      }
+    });
+    return Math.round(totalMin / 60);
+  };
+
+  const totalHours = calculateTotalHours(activities);
 
   return (
     <div className="bg-white rounded-[24px] p-6 border border-border/50 shadow-sm relative z-20">
@@ -20,7 +53,23 @@ export default function ItineraryHeader({ trip, viewMode, setViewMode, onAddActi
               {trip.duration || 0} Days
             </span>
           </div>
-          <h1 className="text-3xl font-heading font-bold text-text mb-1">{trip.name}</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1">
+            <h1 className="text-3xl font-heading font-bold text-text">{trip.name}</h1>
+            {trips.length > 1 && (
+              <select
+                value={trip.id}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  window.location.search = `?tripId=${selectedId}`;
+                }}
+                className="bg-gray-50 border border-border rounded-xl px-3 py-1.5 text-sm font-semibold text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm hover:border-text-muted transition-all"
+              >
+                {trips.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
           <p className="text-text-secondary font-medium">Destination: {trip.destination}</p>
         </div>
 
@@ -59,19 +108,19 @@ export default function ItineraryHeader({ trip, viewMode, setViewMode, onAddActi
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t border-border/50">
         <div>
           <p className="text-text-muted text-xs font-semibold uppercase tracking-wider mb-1">Total Activities</p>
-          <p className="text-text font-bold text-xl">24</p>
+          <p className="text-text font-bold text-xl">{totalActivities}</p>
         </div>
         <div>
           <p className="text-text-muted text-xs font-semibold uppercase tracking-wider mb-1">Completed</p>
-          <p className="text-text font-bold text-xl text-emerald-600">8</p>
+          <p className="text-text font-bold text-xl text-emerald-600">{completed}</p>
         </div>
         <div>
           <p className="text-text-muted text-xs font-semibold uppercase tracking-wider mb-1">Est. Cost</p>
-          <p className="text-text font-bold text-xl">₹1,450</p>
+          <p className="text-text font-bold text-xl">{formatINR(estCost)}</p>
         </div>
         <div>
           <p className="text-text-muted text-xs font-semibold uppercase tracking-wider mb-1">Total Time</p>
-          <p className="text-text font-bold text-xl flex items-center gap-2"><Clock size={18} className="text-primary"/> 42h</p>
+          <p className="text-text font-bold text-xl flex items-center gap-2"><Clock size={18} className="text-primary"/> {totalHours}h</p>
         </div>
       </div>
     </div>

@@ -27,10 +27,23 @@ const mockImages = [
   { url: 'https://images.unsplash.com/photo-1528164344705-47542687000d?q=80&w=600&auto=format&fit=crop', caption: 'Gion District' },
 ];
 
+// Time formatting helper to convert "HH:MM:SS" or "HH:MM" to "hh:mm AM/PM"
+const formatTime12h = (timeStr) => {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1] || '00';
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+};
+
 export default function TripDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [trip, setTrip] = useState(null);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -41,6 +54,34 @@ export default function TripDetails() {
       try {
         const data = await tripService.getTripById(id);
         setTrip(data);
+
+        // Fetch actual timeline activities from backend
+        try {
+          const timeline = await tripService.getTripTimeline(id);
+          const flattened = (timeline.days || []).flatMap(day => {
+            return (day.activities || []).map(act => {
+              let location = '';
+              let notes = act.description || '';
+              if (act.description && act.description.includes(' | ')) {
+                const parts = act.description.split(' | ');
+                location = parts[0] || '';
+                notes = parts.slice(1).join(' | ') || '';
+              }
+              return {
+                title: act.title,
+                type: act.type ? act.type.toLowerCase() : 'other',
+                location: location || data.destination,
+                time: formatTime12h(act.startTime),
+                date: act.activityDate,
+                description: notes
+              };
+            });
+          });
+          setEvents(flattened.length > 0 ? flattened : mockEvents);
+        } catch (timelineErr) {
+          console.warn("Failed to load timeline from backend, falling back to mock timeline", timelineErr);
+          setEvents(mockEvents);
+        }
       } catch (error) {
         console.error(error);
         // Navigate back if trip doesn't exist
@@ -56,6 +97,7 @@ export default function TripDetails() {
     setIsDeleting(true);
     try {
       await tripService.deleteTrip(trip.id);
+      window.dispatchEvent(new Event('tripUpdated'));
       navigate('/dashboard/trips');
     } catch (error) {
       console.error(error);
@@ -175,7 +217,7 @@ export default function TripDetails() {
             <p className="text-text-secondary leading-relaxed">{trip.description}</p>
           </div>
 
-          <TripTimeline events={mockEvents} />
+          <TripTimeline events={events} />
           <TripGallery images={mockImages} />
         </div>
 

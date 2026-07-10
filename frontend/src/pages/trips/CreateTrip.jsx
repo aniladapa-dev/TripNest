@@ -59,6 +59,7 @@ export default function CreateTrip() {
     setIsSubmitting(true);
     try {
       await tripService.createTrip(data);
+      window.dispatchEvent(new Event('tripUpdated'));
       // Wait a moment for success animation
       setTimeout(() => navigate('/dashboard/trips'), 2000);
     } catch (error) {
@@ -102,38 +103,51 @@ export default function CreateTrip() {
     </div>
   );
 
-  const StepDates = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-heading font-bold text-text mb-6">When is the trip?</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Input
-          label="Start Date"
-          type="date"
-          error={errors.startDate?.message}
-          {...register('startDate', { required: 'Start date is required' })}
-        />
-        <Input
-          label="End Date"
-          type="date"
-          error={errors.endDate?.message}
-          {...register('endDate', { required: 'End date is required' })}
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-semibold text-text-secondary mb-4">Travel Type</label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {['Leisure', 'Business', 'Adventure', 'Family'].map(type => (
-            <label key={type} className="cursor-pointer">
-              <input type="radio" value={type} {...register('travelType')} className="peer sr-only" />
-              <div className="p-4 text-center rounded-xl border border-border bg-white peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all font-medium text-text-secondary hover:bg-gray-50 shadow-sm">
-                {type}
-              </div>
-            </label>
-          ))}
+  const StepDates = () => {
+    const startDateValue = watch('startDate');
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-heading font-bold text-text mb-6">When is the trip?</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Input
+            label="Start Date"
+            type="date"
+            error={errors.startDate?.message}
+            {...register('startDate', { required: 'Start date is required' })}
+          />
+          <Input
+            label="End Date"
+            type="date"
+            min={startDateValue}
+            error={errors.endDate?.message}
+            {...register('endDate', { 
+              required: 'End date is required',
+              validate: value => {
+                if (!startDateValue) return true;
+                if (new Date(value) < new Date(startDateValue)) {
+                  return 'End date cannot be before start date';
+                }
+                return true;
+              }
+            })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-text-secondary mb-4">Travel Type</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {['Leisure', 'Business', 'Adventure', 'Family'].map(type => (
+              <label key={type} className="cursor-pointer">
+                <input type="radio" value={type} {...register('travelType')} className="peer sr-only" />
+                <div className="p-4 text-center rounded-xl border border-border bg-white peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary transition-all font-medium text-text-secondary hover:bg-gray-50 shadow-sm">
+                  {type}
+                </div>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const StepTravelers = () => (
     <div className="space-y-6">
@@ -211,11 +225,11 @@ export default function CreateTrip() {
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: return <StepBasics />;
-      case 1: return <StepDates />;
-      case 2: return <StepTravelers />;
-      case 3: return <StepBudget />;
-      case 4: return <StepConfirm />;
+      case 0: return StepBasics();
+      case 1: return StepDates();
+      case 2: return StepTravelers();
+      case 3: return StepBudget();
+      case 4: return StepConfirm();
       default: return null;
     }
   };

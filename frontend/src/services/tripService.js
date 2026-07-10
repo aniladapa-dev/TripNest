@@ -1,179 +1,159 @@
-// Mock data and service for Trip Management Module
 import { apiClient } from './apiClient';
 
-const USE_MOCK_API = true; // Set to false to use Spring Boot backend
+// Helper to determine destination images based on name
+const getDestinationImage = (name) => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('bali')) return '/images/destinations/bali_destination_1783347854372.jpg';
+  if (n.includes('dubai')) return '/images/destinations/dubai_destination_1783347868029.jpg';
+  if (n.includes('paris')) return '/images/destinations/paris_destination_1783347842867.jpg';
+  if (n.includes('santorini')) return '/images/destinations/santorini_destination_1783347901421.jpg';
+  if (n.includes('switzer')) return '/images/destinations/switzerland_destination_1783347889687.jpg';
+  if (n.includes('tokyo') || n.includes('kyoto')) return '/images/destinations/tokyo_destination_1783347878638.jpg';
+  return 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=800&auto=format&fit=crop';
+};
 
-const initialTrips = [
-  {
-    id: 't1',
-    name: 'Autumn in Kyoto',
-    destination: 'Kyoto',
-    country: 'Japan',
-    startDate: '2024-10-12',
-    endDate: '2024-10-20',
-    duration: 8,
-    travelers: 2,
-    travelType: 'Couple',
-    budget: 3500,
-    expenses: 1200,
-    status: 'Upcoming',
-    progress: 85,
-    image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop',
-    organizer: 'Sarah Jenkins',
-    description: 'A magical week experiencing the autumn leaves, traditional tea ceremonies, and ancient temples of Kyoto.'
-  },
-  {
-    id: 't2',
-    name: 'Amalfi Coast Retreat',
-    destination: 'Amalfi Coast',
-    country: 'Italy',
-    startDate: '2024-06-05',
-    endDate: '2024-06-15',
-    duration: 10,
-    travelers: 4,
-    travelType: 'Friends',
-    budget: 5000,
-    expenses: 4800,
-    status: 'Completed',
-    progress: 100,
-    image: 'https://images.unsplash.com/photo-1533090481720-856c6e3c1fdc?q=80&w=800&auto=format&fit=crop',
-    organizer: 'Sarah Jenkins',
-    description: 'Sun, sea, and pasta. Exploring the beautiful coastal towns of Positano, Amalfi, and Ravello.'
-  },
-  {
-    id: 't3',
-    name: 'Winter Wonderland',
-    destination: 'Banff',
-    country: 'Canada',
-    startDate: '2024-12-10',
-    endDate: '2024-12-18',
-    duration: 8,
-    travelers: 3,
-    travelType: 'Family',
-    budget: 4200,
-    expenses: 500,
-    status: 'Planning',
-    progress: 25,
-    image: 'https://images.unsplash.com/photo-1603565816030-6b389eeb23cb?q=80&w=800&auto=format&fit=crop',
-    organizer: 'Sarah Jenkins',
-    description: 'Skiing, hot springs, and snowy mountains in the heart of the Canadian Rockies.'
-  },
-  {
-    id: 't4',
-    name: 'Bali Remote Work',
-    destination: 'Ubud',
-    country: 'Indonesia',
-    startDate: '2025-02-01',
-    endDate: '2025-02-28',
-    duration: 28,
-    travelers: 1,
-    travelType: 'Solo',
-    budget: 2500,
-    expenses: 0,
-    status: 'Archived',
-    progress: 5,
-    image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800&auto=format&fit=crop',
-    organizer: 'Sarah Jenkins',
-    description: 'A month of remote work, yoga, and exploring the rice terraces of Bali.'
+// Map backend TripResponse to frontend trip model
+const mapBackendTripToFrontend = (t) => {
+  if (!t) return null;
+  
+  // Unpack traveler count from title if present
+  let title = t.title || '';
+  let travelersCount = 1;
+  if (title.includes(' | travelers: ')) {
+    const parts = title.split(' | travelers: ');
+    title = parts[0] || '';
+    travelersCount = parseInt(parts[1], 10) || 1;
   }
-];
 
-// Helper to simulate network delay
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  // Calculate duration
+  let duration = 0;
+  if (t.startDate && t.endDate) {
+    const start = new Date(t.startDate);
+    const end = new Date(t.endDate);
+    duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  // Map status
+  let status = 'Planning';
+  if (t.status === 'ACTIVE') status = 'Upcoming';
+  else if (t.status === 'COMPLETED') status = 'Completed';
+  else if (t.status === 'CANCELLED') status = 'Cancelled';
+
+  return {
+    id: t.id,
+    name: title,
+    destination: t.destinationName || '',
+    country: t.destinationCountry || '',
+    startDate: t.startDate,
+    endDate: t.endDate,
+    budget: t.budget || 0,
+    status: status,
+    duration: duration,
+    image: getDestinationImage(t.destinationName),
+    travelers: travelersCount,
+    owner: t.ownerUsername || ''
+  };
+};
 
 export const tripService = {
-  // Get all trips
-  getTrips: async (filters = {}) => {
-    if (!USE_MOCK_API) {
-      return await apiClient.get('/trips', { params: filters });
+  getTrips: async () => {
+    try {
+      const data = await apiClient.get('/trips');
+      return (data || []).map(mapBackendTripToFrontend);
+    } catch (error) {
+      console.error("Failed to load trips", error);
+      return [];
     }
-
-    // Mock Implementation
-    await delay(800); 
-    
-    let result = [...initialTrips];
-    
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      result = result.filter(t => 
-        t.name.toLowerCase().includes(search) || 
-        t.destination.toLowerCase().includes(search) ||
-        t.country.toLowerCase().includes(search)
-      );
-    }
-    
-    if (filters.status && filters.status !== 'All') {
-      result = result.filter(t => t.status === filters.status);
-    }
-
-    if (filters.sort) {
-      switch (filters.sort) {
-        case 'newest':
-          result.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
-          break;
-        case 'oldest':
-          result.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-          break;
-        case 'budget-high':
-          result.sort((a, b) => b.budget - a.budget);
-          break;
-        case 'budget-low':
-          result.sort((a, b) => a.budget - b.budget);
-          break;
-        case 'alphabetical':
-          result.sort((a, b) => a.name.localeCompare(b.name));
-          break;
-        default:
-          break;
-      }
-    }
-    
-    return result;
   },
 
   getTripById: async (id) => {
-    if (!USE_MOCK_API) {
-      return await apiClient.get(`/trips/${id}`);
+    try {
+      const data = await apiClient.get(`/trips/${id}`);
+      return mapBackendTripToFrontend(data);
+    } catch (error) {
+      console.error(`Failed to load trip ${id}`, error);
+      throw error;
     }
-
-    await delay(600);
-    const trip = initialTrips.find(t => t.id === id);
-    if (!trip) throw new Error("Trip not found");
-    return trip;
   },
 
   createTrip: async (tripData) => {
-    if (!USE_MOCK_API) {
-      return await apiClient.post('/trips', tripData);
-    }
+    try {
+      const destinations = await apiClient.get('/destinations');
+      // Find matching destination name
+      const query = (tripData.destination || '').toLowerCase();
+      const matched = (destinations || []).find(d => d.name.toLowerCase() === query);
+      const destId = matched ? matched.id : 1; // Default to Paris (ID 1) if not found
 
-    await delay(1200);
-    const newTrip = {
-      ...tripData,
-      id: `t${Date.now()}`,
-      status: 'Planning',
-      progress: 0,
-      expenses: 0,
-      image: tripData.image || 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=800&auto=format&fit=crop'
-    };
-    return newTrip;
+      // Pack traveler count into the title
+      const titleWithTravelers = `${tripData.name} | travelers: ${tripData.travelers || 1}`;
+
+      const payload = {
+        title: titleWithTravelers,
+        destinationId: destId,
+        startDate: tripData.startDate,
+        endDate: tripData.endDate,
+        budget: parseFloat(tripData.budget) || 0.0
+      };
+
+      const data = await apiClient.post('/trips', payload);
+      return mapBackendTripToFrontend(data);
+    } catch (error) {
+      console.error("Failed to create trip", error);
+      throw error;
+    }
   },
 
   updateTrip: async (id, tripData) => {
-    if (!USE_MOCK_API) {
-      return await apiClient.put(`/trips/${id}`, tripData);
-    }
+    try {
+      const destinations = await apiClient.get('/destinations');
+      const query = (tripData.destination || '').toLowerCase();
+      const matched = (destinations || []).find(d => d.name.toLowerCase() === query);
+      const destId = matched ? matched.id : 1;
 
-    await delay(800);
-    return { id, ...tripData };
+      // Pack traveler count into the title
+      const titleWithTravelers = `${tripData.name} | travelers: ${tripData.travelers || 1}`;
+
+      let backendStatus = 'PLANNED';
+      const fStatus = (tripData.status || '').toLowerCase();
+      if (fStatus === 'upcoming' || fStatus === 'active') backendStatus = 'ACTIVE';
+      else if (fStatus === 'completed') backendStatus = 'COMPLETED';
+      else if (fStatus === 'cancelled') backendStatus = 'CANCELLED';
+
+      const payload = {
+        title: titleWithTravelers,
+        destinationId: destId,
+        startDate: tripData.startDate,
+        endDate: tripData.endDate,
+        budget: parseFloat(tripData.budget) || 0.0,
+        status: backendStatus
+      };
+
+      const data = await apiClient.put(`/trips/${id}`, payload);
+      return mapBackendTripToFrontend(data);
+    } catch (error) {
+      console.error(`Failed to update trip ${id}`, error);
+      throw error;
+    }
   },
 
   deleteTrip: async (id) => {
-    if (!USE_MOCK_API) {
-      return await apiClient.delete(`/trips/${id}`);
+    try {
+      await apiClient.delete(`/trips/${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete trip ${id}`, error);
+      throw error;
     }
+  },
 
-    await delay(800);
-    return true; 
+  getTripTimeline: async (tripId) => {
+    try {
+      // Returns ItineraryResponse DTO
+      return await apiClient.get(`/trips/${tripId}/timeline`);
+    } catch (error) {
+      console.error(`Failed to get timeline for trip ${tripId}`, error);
+      // Return empty format
+      return { days: [] };
+    }
   }
 };

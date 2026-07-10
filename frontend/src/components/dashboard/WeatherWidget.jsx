@@ -16,8 +16,10 @@ export default function WeatherWidget({ weather }) {
       <div className="relative z-10">
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h3 className="font-semibold text-white/90">Kyoto, Japan</h3>
-            <p className="text-xs text-white/70 mt-1">Thursday, Oct 12</p>
+            <h3 className="font-semibold text-white/90">{weather.location || 'Paris, France'}</h3>
+            <p className="text-xs text-white/70 mt-1">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </p>
           </div>
           <motion.div 
             animate={{ y: [-5, 5, -5] }}

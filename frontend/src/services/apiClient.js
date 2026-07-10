@@ -27,9 +27,16 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response Interceptor: Global Error Handling
+// Response Interceptor: Global Error Handling and Unwrapping
 apiClient.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    const res = response.data;
+    // If the response is wrapped in the backend's ApiResponse envelope, unwrap it
+    if (res && res.success !== undefined) {
+      return res.data;
+    }
+    return res;
+  },
   (error) => {
     // You can dispatch a global toast event here if you use an event emitter,
     // or handle specific status codes (e.g., 401 Unauthorized for logout)

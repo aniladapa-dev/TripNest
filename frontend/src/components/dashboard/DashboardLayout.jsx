@@ -66,7 +66,7 @@ export default function DashboardLayout() {
           </main>
 
           {/* ── Right Sidebar (Desktop only) ── */}
-          <RightSidebar />
+          {location.pathname !== '/dashboard/itinerary' && location.pathname !== '/dashboard' && <RightSidebar />}
         </div>
       </div>
     </div>

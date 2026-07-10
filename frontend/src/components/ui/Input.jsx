@@ -29,7 +29,8 @@ const Input = forwardRef(({ label, type = 'text', error, className = '', ...prop
           ref={ref}
           type={inputType}
           className="peer w-full h-14 bg-transparent px-4 pt-4 pb-1 outline-none text-text text-sm z-10"
-          placeholder=" "
+          {...props}
+          placeholder={isFocused ? props.placeholder : " "}
           onFocus={(e) => {
             setIsFocused(true);
             if (props.onFocus) props.onFocus(e);
@@ -38,7 +39,6 @@ const Input = forwardRef(({ label, type = 'text', error, className = '', ...prop
             setIsFocused(false);
             if (props.onBlur) props.onBlur(e);
           }}
-          {...props}
         />
         
         {/* Floating Label */}
